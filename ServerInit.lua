@@ -1,5 +1,5 @@
 local ServerCooldownEvents = {}
-local InvalidModules = {"Datastore2"}
+local InvalidModules = {}
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = game:GetService("ReplicatedStorage").ServerRemotes
 local Players = game:GetService("Players")
