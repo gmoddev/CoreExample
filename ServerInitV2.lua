@@ -48,31 +48,38 @@ function warn(str)
 end
 
 for _, module in ipairs(Modules:GetChildren()) do
-	if not table.find(NonInitFunction,module.Name) then
-		local Module = require(module)
-		
-		if table.find(Module,"PlayerAdded") then
-			table.insert(RunPlrAddedFunction,module.Name)
-		end
-		
-		local s,e = pcall(function()
-			Module:Init()
-		end)
-		if s then
-			warn("Started module: " .. module.Name)
+	coroutine.resume(coroutine.create(function()
+		if not table.find(NonInitFunction,module.Name) then
+			local success,err = pcall(function()
+				local Module = require(module)
+
+				if table.find(Module,"PlayerAdded") then
+					table.insert(RunPlrAddedFunction,module.Name)
+				end
+
+				local s,e = pcall(function()
+					Module:Init()
+				end)
+				if s then
+					warn("Started module: " .. module.Name)
+				else
+					warn("Failed to start module: ".. module.Name .. " for the reason: ".. e)
+				end
+			end)
+			if not success then
+				warn("Module: ".. module.Name.. " failed to load because " .. err)
+			end
 		else
-			warn("Failed to start module: ".. module.Name .. " for the reason: ".. e)
+			local s,e = pcall(function()
+				require(module)
+			end)
+			if s then
+				warn("Started module: " .. module.Name)
+			else
+				warn("Failed to start module: ".. module.Name .. " for the reason: ".. e)
+			end
 		end
-	else
-		local s,e = pcall(function()
-			require(module)
-		end)
-		if s then
-			warn("Started module: " .. module.Name)
-		else
-			warn("Failed to start module: ".. module.Name .. " for the reason: ".. e)
-		end
-	end
+	end))
 end
 Players.PlayerAdded:Connect(function(plr)
 	for _, Func in pairs(RunPlrAddedFunction) do
