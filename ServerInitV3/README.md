@@ -1,8 +1,4 @@
 # How to use 
-Put Core.rbxm / the module in ReplicatedStorage
+Download, drag and drop CoreV3Package.rbxm into Roblox
 
-loadscript.rbxm / loader.script.lua in ServerScriptService/StarterPlayerScripts
-
-Create a Shared folder in ReplicatedStorage | Used for shared modules
-
-Everything needed is in Resources.rbxm too, including a base
+Put models in respective places and ungroup
