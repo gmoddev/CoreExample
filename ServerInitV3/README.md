@@ -9,8 +9,8 @@ Create a script and localscript, put in ServerScriptService and StarterPlayerScr
 
 Create a folder with this hirearchy in both ReplicatedStorage and ServerScriptService
 - Folder
--- Managers
--- Helpers
+- - Managers
+- - Helpers
 
 Clone the Example_Loader.lua and change the respective variables to the folder
 
