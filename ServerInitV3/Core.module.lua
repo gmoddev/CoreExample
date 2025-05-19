@@ -1,7 +1,8 @@
 --[[
 Not_Lowest
-Updated: 5/19/2025 2:03pm EST 
+Updated: 2/3/2025 8:13pm EST
 Description: Handles all logic and loading on both the client and the server. Made to be extensible and safe while maintaining functionality.
+
 Todo:
 
 Redo helper functionality to be similar to managers, and passing services along with it
@@ -69,15 +70,19 @@ return function(script)
 		return setmetatable(Core, Core)
 	end
 	
+	local function CharacterAdded(char,plr)
+		for i,v in pairs(CharacterAdded) do
+			task.spawn(v,char,plr)
+		end
+	end
+	
 	local function PlayerAddedFunc(plr)
 		for i,v in pairs(PlayerAdded) do
 			task.spawn(v,plr)
 		end
 		
 		plr.CharacterAdded:Connect(function(char)
-			for i,v in pairs(CharacterAdded) do
-				task.spawn(v,char,plr)
-			end
+			CharacterAdded(char,plr)
 		end)
 		
 	end
@@ -88,9 +93,15 @@ return function(script)
 		for i,v in ipairs(Players:GetPlayers()) do
 			PlayerAddedFunc(v)
 		end
-		
+
 		Players.PlayerAdded:Connect(PlayerAddedFunc)
+	else
+		local plr: Player = Players.LocalPlayer
+		plr.CharacterAdded:Connect(function(char)
+			CharacterAdded(char,plr)
+		end)
 	end
+
 
 	return Core
 
