@@ -1,8 +1,7 @@
 --[[
 Not_Lowest
-Updated: 2/3/2025 8:13pm EST
+Updated: 5/19/2025 2:03pm EST 
 Description: Handles all logic and loading on both the client and the server. Made to be extensible and safe while maintaining functionality.
-
 Todo:
 
 Redo helper functionality to be similar to managers, and passing services along with it
@@ -22,6 +21,7 @@ return function(script)
 
 	local Core = {}
 	local PlayerAdded = {}
+	local CharacterAdded = {}
 	
 	Core.__index = Core
 
@@ -56,6 +56,8 @@ return function(script)
 		
 		Core.Managers = ManagersReturn.Managers
 		PlayerAdded = ManagersReturn.PlayerAdded
+		CharacterAdded = ManagersReturn.CharacterAdded
+		
 		Core.Settings = {}
 		
 		--// Insert print and warn into core
@@ -69,8 +71,14 @@ return function(script)
 	
 	local function PlayerAddedFunc(plr)
 		for i,v in pairs(PlayerAdded) do
-			v(plr)
+			task.spawn(v,plr)
 		end
+		
+		plr.CharacterAdded:Connect(function(char)
+			for i,v in pairs(CharacterAdded) do
+				task.spawn(v,char,plr)
+			end
+		end)
 		
 	end
 	

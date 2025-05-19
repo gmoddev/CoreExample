@@ -145,6 +145,7 @@ end
 
 local function LoadManagers(managersInst,helpers,services): Managers
 	local PlayerAdded = {}
+	local CharacterAdded = {}
 	local managers = {}
 	for _, manager in pairs(managersInst:GetChildren()) do
 		if not manager:IsA("ModuleScript") then
@@ -165,14 +166,20 @@ local function LoadManagers(managersInst,helpers,services): Managers
 			if type(result) == "table" and type(PlayerAdded) == "table" then
 				local PlayerAddFunc = result["PlayerAdded"]
 				if PlayerAddFunc then
-					PlayerAdded[manager.Name] = PlayerAddFunc
+					PlayerAdded[manager.Name] = PlayerAddFunc	
 				end
+				local CharacterAddedFunc = result["CharacterAdded"]
+				if CharacterAddedFunc then
+					CharacterAdded[manager.Name] = CharacterAddedFunc
+				end
+				
+				
 			end
 			LogStage("Successfully Loaded Manager: ",manager.Name)
 
 		end)
 	end
-	return {Managers = managers, PlayerAdded = PlayerAdded}
+	return {Managers = managers, PlayerAdded = PlayerAdded, CharacterAdded = CharacterAdded}
 end
 
 local function LoadServices(): Services
@@ -180,7 +187,7 @@ local function LoadServices(): Services
 		"CollectionService", "Players", "RunService", "ReplicatedStorage",
 		"ReplicatedFirst", "Lighting", "TextChatService", "TweenService",
 		"StarterGui", "GuiService", "MarketplaceService", "ProximityPromptService",
-		"PathfindingService","TextService","SoundService"
+		"PathfindingService","TextService","SoundService", "Workspace", "Teams",
 	}
 
 	local SpecificServices = {
