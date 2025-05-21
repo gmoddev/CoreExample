@@ -3,6 +3,7 @@ Not_Lowest
 Library for core script, so it can be used as a base for other scripts
 
 3/24/25 - Made LoadManagers NeverNested
+5/21/25 - Added support for nested Player & Character Added
 ]]
 
 local DoLogStage = script.Parent.DoPrintSuccess.Value
@@ -121,7 +122,7 @@ local function LogStage(...)
 	oldwarn("["..COSText.."]",...)
 end
 
-local function LoadHelpers(location,script): Helpers
+local function LoadHelpers(location,script, services: Services): Helpers
 	local helpers = (location == script:FindFirstChild("Helpers") and LoadHelpers(ReplicatedStorage.Shared,script) or {})
 
 	for _, helper in pairs(location:GetChildren()) do
@@ -129,6 +130,12 @@ local function LoadHelpers(location,script): Helpers
 			task.spawn(function()
 				local success, module = pcall(require, helper)
 				if success then
+					if module.Init then
+						module.Init(services)
+					elseif type(module) == "function" then
+						module = pcall(require,module,services)
+					end 
+					
 					helpers[helper.Name] = module
 					LogStage("Successfully Loaded Helper: ",helper.Name)
 				else
@@ -166,14 +173,24 @@ local function LoadManagers(managersInst,helpers,services): Managers
 			if type(result) == "table" and type(PlayerAdded) == "table" then
 				local PlayerAddFunc = result["PlayerAdded"]
 				if PlayerAddFunc then
-					PlayerAdded[manager.Name] = PlayerAddFunc	
+					if type(PlayerAddFunc) == "table" then
+						for i,v in pairs(PlayerAddFunc) do
+							PlayerAdded[manager.Name.."-"..i] = v 
+						end
+					else
+						PlayerAdded[manager.Name] = PlayerAddFunc
+					end	
 				end
 				local CharacterAddedFunc = result["CharacterAdded"]
 				if CharacterAddedFunc then
-					CharacterAdded[manager.Name] = CharacterAddedFunc
+					if type(CharacterAddedFunc) == "table" then
+						for i,v in pairs(CharacterAddedFunc) do
+							CharacterAdded[manager.Name.."-"..i] = v 
+						end
+					else
+						CharacterAdded[manager.Name] = CharacterAddedFunc
+					end	
 				end
-				
-				
 			end
 			LogStage("Successfully Loaded Manager: ",manager.Name)
 
