@@ -3,6 +3,8 @@ Delinquent Studios
 Not_Lowest
 
 Simulates a player object for datastore use
+
+If a system is really looking to prove its a player this wont work, but its simple enough for testing datastores or DS2/ProfileService
 ]]
 
 local Players = game:GetService("Players")
