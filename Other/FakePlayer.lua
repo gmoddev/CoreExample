@@ -10,10 +10,10 @@ local Players = game:GetService("Players")
 local FakePlayer = {}
 FakePlayer.__index = function(self, key)
 	if key == "Key" then
-		return string.format("Player_%d", self.UserId)
+		return self:ToKey()
 	end
-	
-	local value = rawget(self, key) or FakePlayer[key]
+
+	local value = rawget(self, key) or rawget(FakePlayer, key)
 	if value ~= nil then
 		return value
 	end
@@ -25,52 +25,58 @@ FakePlayer.__index = function(self, key)
 	return nil
 end
 
-function FakePlayer.new(userId, name)
+function FakePlayer.new(UserId, name)
 	local RealPlayer = Players:FindFirstChild(name)
-	
 	if RealPlayer then
 		return RealPlayer
 	end
-	
+
 	local self = setmetatable({}, FakePlayer)
-	self.UserId = userId or 0
+
+	self.UserId = UserId or -1
 	self.Name = name or "FakePlayer"
 	self.DisplayName = self.Name
 
 	self.Attributes = {}
 
 	self.Object = Instance.new("Model")
-	self.Object.Name = name or "FakePlayer"
-	self.Object.Parent = game:GetService("ServerStorage")
+	self.Object.Name = self.Name
 
 	self.NilStorage = Instance.new("Model")
 	self.NilStorage.Name = "_Ignore"
 	self.NilStorage.Parent = self.Object
 
 	self.ClassName = "Player"
-	
+
 	self.Character = nil
-	
+
 	self.PlayerGui = Instance.new("ScreenGui")
 	self.PlayerGui.Name = "PlayerGui"
-	self.PlayerGui.Parent = self.Object
-	
+
 	self.Backpack = Instance.new("Folder")
 	self.Backpack.Name = "Backpack"
-	self.Backpack.Parent = self.Object
 
 	self.CharacterAdded = Instance.new("RemoteEvent")
+	self.CharacterAdded.Name = "CharacterAdded"
 	self.CharacterAdded.Parent = self.NilStorage
+
+	self.Destroying = Instance.new("BindableEvent")
+	self.Destroying.Name = "Destroying"
+	self.Destroying.Parent = self.NilStorage
+
+	self.AncestryChanged = Instance.new("BindableEvent")
+	self.AncestryChanged.Name = "AncestryChanged"
+	self.AncestryChanged.Parent = self.NilStorage
 
 	return self
 end
 
 function FakePlayer:GetAttribute(key)
-	return self.Attributes[key]
+	return self.Object:GetAttribute(key)
 end
 
 function FakePlayer:SetAttribute(key, value)
-	self.Attributes[key] = value
+	self.Object:SetAttribute(key, value)
 end
 
 function FakePlayer:FindFirstChild(childName)
@@ -86,7 +92,10 @@ function FakePlayer:IsA(className)
 end
 
 function FakePlayer:IsDescendantOf(parent)
-	return true
+	if not self.Object then
+		return false
+	end
+	return self.Object:IsDescendantOf(parent)
 end
 
 function FakePlayer:ToKey()
@@ -94,10 +103,33 @@ function FakePlayer:ToKey()
 end
 
 function FakePlayer:Destroy()
+	if self.Destroying then
+		self.Destroying:Fire()
+	end
+
 	if self.Object then
 		self.Object:Destroy()
+		self.Object = nil
 	end
-	self = nil
+
+	if self.PlayerGui then
+		self.PlayerGui:Destroy()
+		self.PlayerGui = nil
+	end
+
+	if self.Backpack then
+		self.Backpack:Destroy()
+		self.Backpack = nil
+	end
+
+	self.Attributes = nil
+	self.Character = nil
+	self.CharacterAdded = nil
+	self.Destroying = nil
+	self.AncestryChanged = nil
+	self.NilStorage = nil
+
+	setmetatable(self, nil)
 end
 
 function FakePlayer:__tostring()
