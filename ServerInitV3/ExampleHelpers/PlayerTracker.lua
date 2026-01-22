@@ -1,6 +1,30 @@
 --[[
 Not_Lowest
 Delinquent Studios LLC
+
+Example
+local Webhook: Secret = HttpService:GetSecret("StaffTrackingWebhook")
+local CompletedWebhook = Webhook:AddPrefix("https://webhook.lewisakura.moe/api/webhooks/")
+
+local GroupId = 35144747
+
+local function PlayerAdded(plr)
+	local GroupRank = plr:GetRankInGroup(GroupId)
+	if GroupRank < 49 then
+		return
+	end
+	--// Tracker auto handles cleanup
+	local Tracker = PlayerTracker.Track(plr,CompletedWebhook,true)
+	-- Or, you can do this 
+	local Tracker = PlayerTracker.Track(plr,CompletedWebhook,true,(60*60)) -- 1 hour auto end
+	-- Or, you can do this 
+	local Tracker = PlayerTracker.Track(plr,CompletedWebhook)
+	Tracker:StartTracking()
+	task.delay(60*60,function()
+		Tracker:EndTracking(true) --// True = auto delete
+	end)
+end
+
 ]]
 
 local HttpService = game:GetService("HttpService")
