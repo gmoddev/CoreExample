@@ -29,9 +29,12 @@ end
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local PlayerTracker = {}
 PlayerTracker.__index = PlayerTracker
+
+local IsStudio = RunService:IsStudio()
 
 local function FormatUnixTime(UnixTime: number)
 	return os.date("!%Y-%m-%d %H:%M:%S UTC", UnixTime)
@@ -141,6 +144,7 @@ function PlayerTracker:_Send()
 					{ name = "Joined At", value = FormatUnixTime(self.JoinTime), inline = true },
 					{ name = "Left At", value = FormatUnixTime(self.LeaveTime), inline = true },
 					{ name = "Total Time", value = FormatDuration(DurationSeconds), inline = false },
+					{ name = "IsStudio", value = tostring(IsStudio) == "true" and "Yes" or "No", inline = true}
 				},
 				timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ", self.LeaveTime),
 			}
@@ -176,8 +180,6 @@ function PlayerTracker:SetColor(Color: Color3)
 	return self
 end
 
-
--- Cleanup
 function PlayerTracker:Destroy()
 	if self._Destroyed then return end
 	self._Destroyed = true
