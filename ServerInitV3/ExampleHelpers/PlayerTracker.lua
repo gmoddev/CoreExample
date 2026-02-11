@@ -1,31 +1,100 @@
 --[[
-Not_Lowest
-Delinquent Studios LLC
+	Not_Lowest
+	PlayerTracker
+	Delinquent Studios LLC
 
-Example
-local Webhook: Secret = HttpService:GetSecret("StaffTrackingWebhook")
-local CompletedWebhook = Webhook:AddPrefix("https://webhook.lewisakura.moe/api/webhooks/")
+	────────────────────────────────────────────────────────────
+	Overview
+	────────────────────────────────────────────────────────────
+	PlayerTracker tracks a single player's session and sends a
+	Discord webhook embed when tracking ends.
 
-local GroupId = 35144747
+	It records:
+	• Username
+	• UserId
+	• Server JobId
+	• Join time (UTC)
+	• Leave time (UTC)
+	• Total session duration (HH:MM:SS)
+	• Studio status
 
-local function PlayerAdded(plr)
-	local GroupRank = plr:GetRankInGroup(GroupId)
-	if GroupRank < 49 then
-		return
+	Tracking automatically ends when:
+	• The player leaves the server
+	• The player instance is destroyed
+	• A timed auto-end expires (optional)
+	• EndTracking() is called manually
+
+	────────────────────────────────────────────────────────────
+	Constructor
+	────────────────────────────────────────────────────────────
+	PlayerTracker.Track(
+		Player: Player,
+		WebhookUrl: string,
+		AutoStart: boolean?,     -- Optional
+		EndTime: number?         -- Optional (seconds until auto-end)
+	)
+
+	Returns: PlayerTracker instance
+
+	Parameters:
+	• Player      → Player to track
+	• WebhookUrl  → Fully constructed Discord webhook URL
+	• AutoStart   → If true, tracking begins immediately
+	• EndTime     → If provided with AutoStart, auto-ends after X seconds
+
+	────────────────────────────────────────────────────────────
+	Basic Usage
+	────────────────────────────────────────────────────────────
+
+	local Webhook: Secret = HttpService:GetSecret("StaffTrackingWebhook")
+	local CompletedWebhook = Webhook:AddPrefix("https://yourdomain.com/api/webhooks/")
+	local GroupId = 35144747
+
+	local function PlayerAdded(Player)
+		local GroupRank = Player:GetRankInGroup(GroupId)
+		if GroupRank < 49 then
+			return
+		end
+
+		-- Auto start, auto cleanup on leave
+		PlayerTracker.Track(Player, CompletedWebhook, true)
+
+		-- Auto start, auto end after 1 hour
+		PlayerTracker.Track(Player, CompletedWebhook, true, 60 * 60)
+
+		-- Manual control example
+		local Tracker = PlayerTracker.Track(Player, CompletedWebhook)
+		Tracker:StartTracking()
+
+		task.delay(60 * 60, function()
+			Tracker:EndTracking(true) -- true = destroy after send
+		end)
 	end
-	--// Tracker auto handles cleanup
-	local Tracker = PlayerTracker.Track(plr,CompletedWebhook,true)
-	-- Or, you can do this 
-	local Tracker = PlayerTracker.Track(plr,CompletedWebhook,true,(60*60)) -- 1 hour auto end
-	-- Or, you can do this 
-	local Tracker = PlayerTracker.Track(plr,CompletedWebhook)
-	Tracker:StartTracking()
-	task.delay(60*60,function()
-		Tracker:EndTracking(true) --// True = auto delete
-	end)
-end
 
+	────────────────────────────────────────────────────────────
+	Advanced Customization
+	────────────────────────────────────────────────────────────
+
+	Tracker:SetTitle("Custom Session End Title")
+	Tracker:SetColor(Color3.fromRGB(255, 0, 0))
+	Tracker:SetWebhook(NewWebhookUrl)
+
+	────────────────────────────────────────────────────────────
+	Important Notes
+	────────────────────────────────────────────────────────────
+	• This module tracks ONE player per instance.
+	• Destroy() should be called if you manually manage lifecycle.
+	• Webhook requests are sent asynchronously (non-blocking).
+	• Errors during HTTP requests are silently protected via pcall.
+	• Safe to use in live servers and Studio.
+
+	────────────────────────────────────────────────────────────
+	Recommended Use Case
+	────────────────────────────────────────────────────────────
+	Staff session logging, moderator tracking, analytics logging,
+	compliance monitoring, or any session-based auditing system.
 ]]
+
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
