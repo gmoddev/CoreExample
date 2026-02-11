@@ -1,7 +1,98 @@
 --[[
-Not_Lowest
-Client DistanceSoundController
+	Not_Lowest
+	Delinquent Studios LLC
+	DistanceSoundController
+	Client-Side Distance-Based Sound Effect Manager
+
+	────────────────────────────────────────────────────────────
+	Overview
+	────────────────────────────────────────────────────────────
+	DistanceSoundController dynamically applies SoundEffects
+	to a playing Sound based on the listener’s distance.
+
+	When the local player moves beyond a configurable
+	distance threshold, effects (such as Reverb, Equalizer,
+	Distortion, etc.) are attached to simulate distance-based
+	audio realism. When the player moves closer again,
+	those effects are removed.
+
+	This runs entirely on the client.
+
+	────────────────────────────────────────────────────────────
+	How It Works
+	────────────────────────────────────────────────────────────
+	• Monitors Sound.IsPlaying
+	• Checks distance every Heartbeat
+	• Compares distance against:
+	      RollOffMaxDistance * DistanceMultiplier
+	• Applies or removes SoundEffects accordingly
+	• Automatically cleans up when the Sound is destroyed
+
+	────────────────────────────────────────────────────────────
+	Configuration
+	────────────────────────────────────────────────────────────
+	Controller.RegisterSound(Sound, Config)
+
+	Config:
+	{
+		DistanceMultiplier = number,   -- Optional (default = 0.5)
+		EffectFolder = Folder          -- Folder containing SoundEffect instances
+	}
+
+	DistanceMultiplier:
+		Defines how far from the sound (relative to RollOffMaxDistance)
+		the listener must be before effects activate.
+
+	Example:
+		If RollOffMaxDistance = 100
+		and DistanceMultiplier = 0.5
+		Effects activate at 50 studs.
+
+	EffectFolder:
+		A folder containing SoundEffect objects.
+		All SoundEffects inside will be cloned and
+		parented to the Sound when activated.
+
+	────────────────────────────────────────────────────────────
+	Example Usage
+	────────────────────────────────────────────────────────────
+
+	local Controller = require(Module)(services)
+
+	local Sound = workspace.Radio.Sound
+	local EffectsFolder = ReplicatedStorage.SoundEffects.DistantEffects
+
+	Controller.RegisterSound(Sound, {
+		DistanceMultiplier = 0.6,
+		EffectFolder = EffectsFolder
+	})
+
+	────────────────────────────────────────────────────────────
+	Behavior Notes
+	────────────────────────────────────────────────────────────
+	• Only activates while Sound.IsPlaying == true
+	• Sound must be parented to a BasePart
+	• Effects are cached per Sound
+	• Safe against duplicate registration
+	• Automatically cleans up when Sound is removed
+	• Designed for spatial realism / environmental audio
+
+	────────────────────────────────────────────────────────────
+	Recommended Use Cases
+	────────────────────────────────────────────────────────────
+	• Gunshots with distant echo
+	• Radio chatter with far reverb
+	• Explosion muffling over distance
+	• Environmental ambience realism
+	• City / combat audio simulation
+
+	────────────────────────────────────────────────────────────
+	Important
+	────────────────────────────────────────────────────────────
+	This module is client-only.
+	Do NOT run on the server.
 ]]
+
 
 return function(services)
 	local Players = services.Players
