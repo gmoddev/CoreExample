@@ -42,4 +42,4 @@ They aren't very good. They were built much earlier in my Luau journey and don't
 
 Whether you're looking for inspiration, architecture ideas, or simply want to see how a large Luau codebase can be organized, I hope you find something useful here.
 
-If CoreExample saves you time or teaches you something new, then it's done exactly what I hoped it would.
+If this example saves you time or teaches you something new, then it's done exactly what I hoped it would.
