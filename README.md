@@ -10,7 +10,7 @@ This repository also exists as proof of authorship. Unfortunately, Roblox develo
 
 You're welcome to use, modify, or learn from anything in this repository. I'd genuinely love to see these systems help other developers build something great.
 
-The only thing I ask is that you leave a small credit somewhere—whether that's in your game's credits, documentation, or even just a comment in the source.
+The only thing I ask is that you leave a small credit somewhere; whether that's in your game's credits, documentation, or even just a comment in the source.
 
 ## Versions
 
