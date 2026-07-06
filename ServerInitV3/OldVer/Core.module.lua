@@ -1,15 +1,13 @@
 --[[
 Not_Lowest
-Updated: 2/3/2025 8:13pm EST
+Updated: 11/22/2025 8:28pm EST
 Description: Handles all logic and loading on both the client and the server. Made to be extensible and safe while maintaining functionality.
-
-Todo:
-
-Redo helper functionality to be similar to managers, and passing services along with it
 ]]
 
 local DoLogStage = script.DoPrintSuccess.Value
 local HelperFuncs = require(script.HelperFunctions)
+
+local GameLoaded = false
 
 return function(script)
 	local RunService = game:GetService("RunService")
@@ -23,7 +21,7 @@ return function(script)
 	local Core = {}
 	local PlayerAdded = {}
 	local CharacterAdded = {}
-	
+
 	Core.__index = Core
 
 	local print = HelperFuncs.print
@@ -35,59 +33,72 @@ return function(script)
 	local LoadServices = HelperFuncs.LoadServices
 
 	local function Init()
-		if _G["GameLoaded"] then
+		if GameLoaded then
 			warn("Trying to load game when its already loaded on ", COSText)
 			return
 		end
 		
+		local self = setmetatable({}, Core)
+		
+		self.Loaded = false
+		self.LoadEvent = Instance.new("BindableEvent")
+		
 		LogStage("Initalizing")
 		LogStage("Loading Services")
-		Core.Services = LoadServices()
+		self.Services = LoadServices()
 		LogStage("Loading Helpers")
 		local Helpers = script:FindFirstChild("Helpers")
-		Core.Helpers = {}
+		self.Helpers = {}
 		if Helpers then
-			Core.Helpers = LoadHelpers(Helpers,script)
+			self.Helpers = LoadHelpers(Helpers,script,self.Services)
+		end
+
+		self.Helpers.CoreService = HelperFuncs
+
+		LogStage("Loading Managers")
+		local ManagersInst = script:FindFirstChild("Managers")
+		if not ManagersInst then
+			LogStage("Failed to load managers, instance doesnt exist")
+			return 
 		end
 		
-		Core.Helpers.CoreService = HelperFuncs
-		
-		LogStage("Loading Managers")
-		local ManagersReturn = LoadManagers(script:FindFirstChild("Managers"),Core.Helpers,Core.Services)
-		
-		Core.Managers = ManagersReturn.Managers
+		local ManagersReturn = LoadManagers(ManagersInst,self)
+
+		self.Managers = ManagersReturn.Managers
 		PlayerAdded = ManagersReturn.PlayerAdded
 		CharacterAdded = ManagersReturn.CharacterAdded
+
+		self.Settings = {}
+
+		self.Helpers.print = print
+		self.Helpers.warn = warn
 		
-		Core.Settings = {}
+		GameLoaded = true
+		_G["GameLoaded"] = true --// Backwards compatibility for legacy scripts
+		self.LoadEvent:Fire()
 		
-		--// Insert print and warn into core
-		Core.Helpers.print = print
-		Core.Helpers.warn = warn
-		--// Set a global value of GameLoaded to true, so certain things relying on it can finish loading
-		_G["GameLoaded"] = true
 		LogStage("Successfully completed load")
-		return setmetatable(Core, Core)
+		return self
 	end
-	
-	local function CharacterAdded(char,plr)
+
+	local function CharacterAddedFunc(char,plr)
 		for i,v in pairs(CharacterAdded) do
 			task.spawn(v,char,plr)
 		end
 	end
-	
+
 	local function PlayerAddedFunc(plr)
 		for i,v in pairs(PlayerAdded) do
 			task.spawn(v,plr)
 		end
-		
+
 		plr.CharacterAdded:Connect(function(char)
-			CharacterAdded(char,plr)
+			CharacterAddedFunc(char,plr)
 		end)
-		
+
 	end
-	
-	Init()
+
+	local ToReturn = Init()
 
 	if RunService:IsServer() then
 		for i,v in ipairs(Players:GetPlayers()) do
@@ -98,11 +109,11 @@ return function(script)
 	else
 		local plr: Player = Players.LocalPlayer
 		plr.CharacterAdded:Connect(function(char)
-			CharacterAdded(char,plr)
+			CharacterAddedFunc(char,plr)
 		end)
 	end
 
 
-	return Core
+	return ToReturn
 
 end
