@@ -43,7 +43,9 @@ return function(Runtime)
 		return "A loaded Core module id in the form Kind:Name"
 	end
 
-	function DependencyGraph.Sort(Descriptors)
+	function DependencyGraph.Sort(Descriptors, SatisfiedIds)
+		SatisfiedIds = SatisfiedIds or {}
+
 		local DescriptorById = {}
 
 		for _, Descriptor in ipairs(Descriptors) do
@@ -94,6 +96,10 @@ return function(Runtime)
 				local RequiredDescriptor = DescriptorById[RequirementId]
 
 				if not RequiredDescriptor then
+					if SatisfiedIds[RequirementId] then
+						continue
+					end
+
 					return false, LoadFailure.new({
 						Stage = "ResolveDependencies",
 						ModuleId = Descriptor.Id,

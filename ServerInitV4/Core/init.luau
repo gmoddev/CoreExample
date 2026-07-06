@@ -1,7 +1,9 @@
 --[[
 	Not_Lowest
 	Version: 4.2
-	Last Updated: 07/06/26 1:14am
+	Last Updated: 07/06/26 3:11am
+	
+	7/06/26 - Made load order explicit with Helpers->Middleware->Managers
 ]]
 
 -- No check because of the return
