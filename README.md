@@ -18,11 +18,19 @@ CoreExample has gone through several major iterations over the years, each refle
 
 ### V4 (Current)
 
-V4 is the current generation of the framework. Unlike previous versions, it is a complete service loader rather than a few helper functions. It focuses on dependency management, initialization order, runtime loading, shared module publishing, error reporting, and building larger projects in a structured, maintainable way.
+V4 is the current generation of CoreExample and is where the framework became an actual service loader.
+
+At this point, it is no longer just a helper module with a few loading functions. V4 has a real runtime layer, an explicit runtime load order, dependency handling, lifecycle binding, shared server/client publishing, structured logging, failure reporting, load promises, and registry access for Helpers, Middleware, and Managers.
+
+The runtime itself loads in a defined order, including modules like Promise, LoadFailure, Logger, Services, SharedPublisher, DependencyGraph, ModuleCatalog, ManagerExtensions, Loader, and Lifecycle. This makes the system much more predictable and maintainable than the older versions.
+
+V4 is the version that best represents how I currently think about large Luau architecture.
 
 ### V3
 
-V3 is still included because I continue to use it for some projects. While it isn't as feature-rich as V4, it's significantly simpler and is often the better choice for smaller games or projects that don't need the additional complexity of a full service loader.
+It is simpler than V4, but that is also part of why it is still useful. For smaller projects, V3 can be easier to drop in and work with because it focuses mainly on loading Services, Helpers, and Managers without the extra runtime structure that V4 has.
+
+V3 was also the first version where the loader started feeling like a real framework instead of just a startup script. It added better helper loading, manager loading, player/character lifecycle hooks, Promise usage, xpcall-based error handling, lazy service access, and support for shared modules.
 
 ### Legacy (V1 & V2)
 
