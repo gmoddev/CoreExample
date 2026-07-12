@@ -23,6 +23,11 @@ return function(Runtime)
 			FolderName = "Middleware",
 			RegistryName = "Middleware",
 		},
+		{
+			Kind = "Service",
+			FolderName = "Services",
+			RegistryName = "Services",
+		},
 	}
 
 	local function NormalizeRequires(Requires, CurrentKind, ModuleScript)
@@ -63,74 +68,6 @@ return function(Runtime)
 		return Normalized
 	end
 
-	local function GetDependencyKind(RequirementId)
-		local Separator = string.find(RequirementId, ":", 1, true)
-
-		if not Separator then
-			return nil
-		end
-
-		return string.sub(RequirementId, 1, Separator - 1)
-	end
-
-	local function SplitDescriptorsByPhase(Descriptors)
-		local HelperDescriptors = {}
-		local MiddlewareDescriptors = {}
-
-		for _, Descriptor in ipairs(Descriptors) do
-			if Descriptor.Kind == "Helper" then
-				table.insert(HelperDescriptors, Descriptor)
-			else
-				table.insert(MiddlewareDescriptors, Descriptor)
-			end
-		end
-
-		return HelperDescriptors, MiddlewareDescriptors
-	end
-
-	local function ContainsKind(Kinds, Kind)
-		for _, AllowedKind in ipairs(Kinds) do
-			if Kind == AllowedKind then
-				return true
-			end
-		end
-
-		return false
-	end
-
-	local function ValidatePhaseDependencies(Descriptors, AllowedKinds)
-		for _, Descriptor in ipairs(Descriptors) do
-			for _, RequirementId in ipairs(Descriptor.Requires) do
-				local RequirementKind = GetDependencyKind(RequirementId)
-
-				if not ContainsKind(AllowedKinds, RequirementKind) then
-					return false, LoadFailure.new({
-						Stage = "ResolveDependencies",
-						ModuleId = ("Manager:%s:%s"):format(Descriptor.ManagerName, Descriptor.Id),
-						ModulePath = Descriptor.Module and Descriptor.Module:GetFullName() or nil,
-						Reason = ("Manager extension %s modules cannot depend on %s because Core loads local extension phases in this order: Helpers, Middleware"):format(Descriptor.Kind, RequirementId),
-						Dependency = RequirementId,
-						Expected = ("One of these dependency kinds: %s"):format(table.concat(AllowedKinds, ", ")),
-					})
-				end
-			end
-		end
-
-		return true
-	end
-
-	local function AddSatisfiedIds(SatisfiedIds, Descriptors)
-		for _, Descriptor in ipairs(Descriptors) do
-			SatisfiedIds[Descriptor.Id] = true
-		end
-	end
-
-	local function AppendDescriptors(Target, Source)
-		for _, Descriptor in ipairs(Source) do
-			table.insert(Target, Descriptor)
-		end
-	end
-
 	local function GetRegistryValues(Registry, RegistryName, ManagerName, Logger, ...)
 		local Count = select("#", ...)
 
@@ -160,6 +97,7 @@ return function(Runtime)
 			Name = ManagerName,
 			Helpers = {},
 			Middleware = {},
+			Services = {},
 			Logger = Logger,
 		}
 
@@ -169,6 +107,10 @@ return function(Runtime)
 
 		function Context:GetMiddleware(...)
 			return GetRegistryValues(self.Middleware, "Middleware", self.Name, self.Logger, ...)
+		end
+
+		function Context:GetService(...)
+			return GetRegistryValues(self.Services, "Service", self.Name, self.Logger, ...)
 		end
 
 		return Context
@@ -210,8 +152,8 @@ return function(Runtime)
 
 		if type(FirstReturn) == "function" then
 			Factory = FirstReturn
-		elseif type(FirstReturn) == "table" and (type(FirstReturn[1]) == "table" or FirstReturn[2] ~= nil) then
-			if type(FirstReturn[1]) ~= "table" or type(FirstReturn[2]) ~= "function" then
+		elseif type(FirstReturn) == "table" and type(rawget(FirstReturn, 2)) == "function" then
+			if type(rawget(FirstReturn, 1)) ~= "table" then
 				return nil, LoadFailure.new({
 					Stage = "ReadManagerExtensionMetadata",
 					ModulePath = ModuleScript:GetFullName(),
@@ -219,11 +161,11 @@ return function(Runtime)
 				})
 			end
 
-			Metadata = FirstReturn[1]
-			Factory = FirstReturn[2]
-		elseif type(FirstReturn) == "table" and type(FirstReturn.Factory) == "function" then
+			Metadata = rawget(FirstReturn, 1)
+			Factory = rawget(FirstReturn, 2)
+		elseif type(FirstReturn) == "table" and type(rawget(FirstReturn, "Factory")) == "function" then
 			Metadata = FirstReturn
-			Factory = FirstReturn.Factory
+			Factory = rawget(FirstReturn, "Factory")
 		else
 			Metadata = type(FirstReturn) == "table" and FirstReturn or {}
 			DirectValue = FirstReturn
@@ -237,7 +179,8 @@ return function(Runtime)
 			})
 		end
 
-		local Name = Metadata.Name or ModuleScript.Name
+		local Name = type(Metadata) == "table" and rawget(Metadata, "Name") or nil
+		Name = Name or ModuleScript.Name
 
 		if type(Name) ~= "string" or Name == "" then
 			return nil, LoadFailure.new({
@@ -247,7 +190,8 @@ return function(Runtime)
 			})
 		end
 
-		local Requires, RequiresReason = NormalizeRequires(Metadata.Requires, KindInfo.Kind, ModuleScript)
+		local RequiresValue = type(Metadata) == "table" and rawget(Metadata, "Requires") or nil
+		local Requires, RequiresReason = NormalizeRequires(RequiresValue, KindInfo.Kind, ModuleScript)
 
 		if not Requires then
 			return nil, RequiresReason
@@ -358,7 +302,7 @@ return function(Runtime)
 	function ManagerExtensions.Load(Core, Descriptor)
 		local Context = CreateContext(Descriptor.Name, Core.Logger)
 
-		if Descriptor.Metadata.NoCheckChildren == true then
+		if rawget(Descriptor.Metadata, "NoCheckChildren") == true then
 			return Context
 		end
 
@@ -372,38 +316,11 @@ return function(Runtime)
 			return Context
 		end
 
-		local HelperDescriptors, MiddlewareDescriptors = SplitDescriptorsByPhase(Descriptors)
-		local HelpersValid, HelpersValidReason = ValidatePhaseDependencies(HelperDescriptors, { "Helper" })
+		local OrderedDescriptors, SortReason = DependencyGraph.Sort(Descriptors)
 
-		if not HelpersValid then
-			return nil, HelpersValidReason
+		if not OrderedDescriptors then
+			return nil, SortReason
 		end
-
-		local MiddlewareValid, MiddlewareValidReason =
-			ValidatePhaseDependencies(MiddlewareDescriptors, { "Helper", "Middleware" })
-
-		if not MiddlewareValid then
-			return nil, MiddlewareValidReason
-		end
-
-		local OrderedHelpers, HelperSortReason = DependencyGraph.Sort(HelperDescriptors)
-
-		if not OrderedHelpers then
-			return nil, HelperSortReason
-		end
-
-		local SatisfiedIds = {}
-		AddSatisfiedIds(SatisfiedIds, OrderedHelpers)
-
-		local OrderedMiddleware, MiddlewareSortReason = DependencyGraph.Sort(MiddlewareDescriptors, SatisfiedIds)
-
-		if not OrderedMiddleware then
-			return nil, MiddlewareSortReason
-		end
-
-		local OrderedDescriptors = {}
-		AppendDescriptors(OrderedDescriptors, OrderedHelpers)
-		AppendDescriptors(OrderedDescriptors, OrderedMiddleware)
 
 		for _, LocalDescriptor in ipairs(OrderedDescriptors) do
 			Core.Logger:Stage("Loading", ("Manager:%s:%s"):format(Descriptor.Name, LocalDescriptor.Id))

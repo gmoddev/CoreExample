@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Core = ReplicatedStorage:FindFirstChild("Core")
 local Client = ServerScriptService:FindFirstChild("Client")
@@ -18,9 +19,9 @@ if not success then
 	return
 end
 
-local success, Runtime = pcall(CoreModule, Client)
+local runtimeSuccess, Runtime = pcall(CoreModule, Client)
 
-if not success then
+if not runtimeSuccess then
 	warn("Failed to initialize Core module: ", debug.traceback(tostring(Runtime), 5))
 	return
 end

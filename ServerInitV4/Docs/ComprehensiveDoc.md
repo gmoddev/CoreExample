@@ -69,7 +69,7 @@ Helpers/
 
 Consumers still refer to it as `InventoryView`.
 
-Managers can also own private extension helpers and middleware. These are loaded only for that manager and are not inserted into the public Core registries.
+Managers can also own private extension helpers, middleware, and services. These are loaded only for that manager and are not inserted into the public Core registries.
 
 Preferred layout:
 
@@ -82,6 +82,8 @@ Managers/
         ItemBuilder.luau
       Middleware/
         ValidateSlot.luau
+      Services/
+        SlotService.luau
 ```
 
 Flat layout:
@@ -94,9 +96,11 @@ Managers/
       ItemBuilder.luau
     Middleware/
       ValidateSlot.luau
+    Services/
+      SlotService.luau
 ```
 
-Use one layout per manager. If both `Extension/Helpers` and `Helpers` exist under the same manager, Core warns and stops loading instead of guessing.
+Use one layout per manager. If both `Extension/Helpers` and `Helpers`, both `Extension/Middleware` and `Middleware`, or both `Extension/Services` and `Services` exist under the same manager, Core warns and stops loading instead of guessing.
 
 ## Bootstrapping
 
@@ -317,7 +321,9 @@ Both `Factory = function(...)` and `{ Meta, function(...) }` are Roblox-safe. Av
 
 ## Manager-Local Extensions
 
-Manager folder modules can own private helpers and middleware beneath themselves.
+Manager folder modules can own private helpers, middleware, and services beneath themselves.
+
+A manager-local service is a private, potentially stateful subsystem owned by one manager. It may coordinate helpers, middleware, and other local services, but it is not registered as a public Core manager or exposed through `core.Services`.
 
 ```text
 Managers/
@@ -328,6 +334,8 @@ Managers/
         ItemBuilder.luau
       Middleware/
         ValidateSlot.luau
+      Services/
+        SlotService.luau
 ```
 
 Core loads these extension modules immediately before the owning manager factory runs. They are available through the second factory argument:
@@ -342,11 +350,13 @@ return {
 		local ItemTypes = core:GetHelper("ItemTypes")
 		local ItemBuilder = Manager:GetHelper("ItemBuilder")
 		local ValidateSlot = Manager:GetMiddleware("ValidateSlot")
+		local SlotService = Manager:GetService("SlotService")
 
 		return {
 			ItemTypes = ItemTypes,
 			ItemBuilder = ItemBuilder,
 			ValidateSlot = ValidateSlot,
+			SlotService = SlotService,
 		}
 	end,
 }
@@ -358,11 +368,21 @@ The manager-local context contains:
 Manager.Name
 Manager.Helpers
 Manager.Middleware
+Manager.Services
 Manager:GetHelper(...)
 Manager:GetMiddleware(...)
+Manager:GetService(...)
 ```
 
-Local helpers and middleware use the same module formats as public Core modules.
+Manager-local getters support the same calling convention as public Core getters:
+
+```lua
+local SlotService = Manager:GetService("SlotService")
+local One, Two = Manager:GetService("One", "Two")
+local Services = Manager:GetService()
+```
+
+Local helpers, middleware, and services use the same module formats as public Core modules.
 
 ```lua
 return {
@@ -390,7 +410,9 @@ return {
 
 Local extension modules are private to their owning manager. They are not available through `core:GetHelper(...)` or `core:GetMiddleware(...)`, and other managers cannot fetch them.
 
-Local `Requires` only order modules inside the same manager extension registry:
+Manager-local services are also private. They are not available through `core:GetManager(...)`, `core:GetHelper(...)`, `core:GetMiddleware(...)`, or `core.Services`. `core.Services.Players` uses the lazy Roblox/Core service table; `Manager:GetService("SlotService")` retrieves a private subsystem belonging to that manager.
+
+Local `Requires` only order modules inside the same manager-local extension set:
 
 ```lua
 return {
@@ -408,6 +430,36 @@ return {
 }
 ```
 
+Service modules can be simple factories, metadata factories, or tuple-table modules:
+
+```lua
+return {
+	Name = "SlotService",
+	Requires = {
+		"Helper:ItemBuilder",
+	},
+	Factory = function(core, Manager)
+		local ItemBuilder = Manager:GetHelper("ItemBuilder")
+		local SlotService = {}
+
+		function SlotService:GetSlot(Player, SlotId)
+		end
+
+		return SlotService
+	end,
+}
+```
+
+Manager-local dependency ids use:
+
+```text
+Helper:Name
+Middleware:Name
+Service:Name
+```
+
+Base discovery order is helpers, middleware, then services. The dependency graph decides final construction order, so explicit dependencies can reorder modules across those kinds. Helper or middleware dependencies on services are allowed by the graph but are discouraged because services are intended to coordinate lower-level local modules.
+
 If a local extension needs a public helper, middleware, or manager to already exist, put that dependency on the owning manager:
 
 ```lua
@@ -423,7 +475,7 @@ return {
 }
 ```
 
-Manager extension modules do not register Core lifecycle hooks. Keep `Init`, `Start`, `PlayerAdded`, and `CharacterAdded` on the owning manager, and call local helper or middleware behavior from there when needed.
+Manager extension modules do not register Core lifecycle hooks. Keep `Init`, `Start`, `PlayerAdded`, and `CharacterAdded` on the owning manager, and call local helper, middleware, or service behavior from there when needed. A service may expose methods with lifecycle-like names, but Core does not discover or bind them automatically.
 
 To opt a manager out of child extension scanning, set `NoCheckChildren`:
 
@@ -437,7 +489,7 @@ return {
 }
 ```
 
-Use `NoCheckChildren` when a manager has private children that it loads manually with `require(script.Child)` and should not be inspected for `Extension`, `Helpers`, or `Middleware`.
+Use `NoCheckChildren` when a manager has private children that it loads manually with `require(script.Child)` and should not be inspected for `Extension`, `Helpers`, `Middleware`, or `Services`.
 
 ## Dependencies
 
@@ -583,6 +635,8 @@ Missing names warn immediately and return `nil`. This keeps runtime failures vis
 
 Services are lazy-loaded through `core.Services`.
 
+This is separate from manager-local services. `core.Services.Players` retrieves a Roblox service from the lazy Core service table. `Manager:GetService("SlotService")` retrieves a private subsystem owned by one manager.
+
 ```lua
 return function(core)
 	local Services = core.Services
@@ -686,7 +740,7 @@ Lifecycle order:
 2. Client waits for ServerSharedLoaded
 3. Discover modules
 4. Sort dependencies
-5. Load each manager's local extensions, unless `NoCheckChildren` is true
+5. Load each manager's local helpers, middleware, and services in local dependency order, unless `NoCheckChildren` is true
 6. Run module factories in dependency order
 7. Register returned values
 8. Run Init methods
@@ -765,7 +819,7 @@ Services.luau         lazy service table
 ModuleCatalog.luau    discovers modules and reads metadata
 DependencyGraph.luau  dependency sorting and cycle detection
 Loader.luau           constructs modules and runs Init/Start
-ManagerExtensions.luau loads manager-local Helpers and Middleware
+ManagerExtensions.luau loads manager-local Helpers, Middleware, and Services
 Lifecycle.luau        player and character hook binding
 ```
 

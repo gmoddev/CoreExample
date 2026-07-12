@@ -302,7 +302,9 @@ local InventoryManager = core:GetManager("InventoryManager")
 
 ## Manager-Local Extension Modules
 
-Managers can own private helpers and middleware. These modules initialize before the owning manager factory and stay scoped to that manager.
+Managers can own private helpers, middleware, and services. These modules initialize before the owning manager factory and stay scoped to that manager.
+
+A manager-local service is a private, potentially stateful subsystem owned by one manager. It may coordinate helpers, middleware, and other local services, but it is not registered as a public Core manager or exposed through `core.Services`.
 
 Preferred layout:
 
@@ -317,6 +319,8 @@ ServerScriptService/
             ItemBuilder.luau
           Middleware/
             ValidateSlot.luau
+          Services/
+            SlotService.luau
 ```
 
 Flat layout:
@@ -331,9 +335,11 @@ ServerScriptService/
           ItemBuilder.luau
         Middleware/
           ValidateSlot.luau
+        Services/
+          SlotService.luau
 ```
 
-Use one layout per manager. Core warns and stops loading if both `Extension/Helpers` and `Helpers`, or both `Extension/Middleware` and `Middleware`, exist under the same manager.
+Use one layout per manager. Core warns and stops loading if both `Extension/Helpers` and `Helpers`, both `Extension/Middleware` and `Middleware`, or both `Extension/Services` and `Services` exist under the same manager.
 
 `InventoryManager/init.luau`:
 
@@ -347,14 +353,26 @@ return {
 		local ItemTypes = core:GetHelper("ItemTypes")
 		local ItemBuilder = Manager:GetHelper("ItemBuilder")
 		local ValidateSlot = Manager:GetMiddleware("ValidateSlot")
+		local SlotService = Manager:GetService("SlotService")
 
 		return {
 			ItemTypes = ItemTypes,
 			ItemBuilder = ItemBuilder,
 			ValidateSlot = ValidateSlot,
+			SlotService = SlotService,
 		}
 	end,
 }
+```
+
+The manager-local context contains `Manager.Helpers`, `Manager.Middleware`, and `Manager.Services`, plus `Manager:GetHelper(...)`, `Manager:GetMiddleware(...)`, and `Manager:GetService(...)`.
+
+`Manager:GetService(...)` follows the same lookup behavior as the other local getters:
+
+```lua
+local SlotService = Manager:GetService("SlotService")
+local One, Two = Manager:GetService("One", "Two")
+local Services = Manager:GetService()
 ```
 
 `InventoryManager/Extension/Middleware/ValidateSlot.luau`:
@@ -375,7 +393,34 @@ return {
 }
 ```
 
+`InventoryManager/Extension/Services/SlotService.luau`:
+
+```lua
+return {
+	Name = "SlotService",
+	Requires = {
+		"Helper:ItemBuilder",
+		"Middleware:ValidateSlot",
+	},
+	Factory = function(core, Manager)
+		local ItemBuilder = Manager:GetHelper("ItemBuilder")
+		local ValidateSlot = Manager:GetMiddleware("ValidateSlot")
+
+		return {
+			ItemBuilder = ItemBuilder,
+			ValidateSlot = ValidateSlot,
+		}
+	end,
+}
+```
+
 Local extension `Requires` only refer to modules inside the same manager's extension folders. Public dependencies should stay on the owning manager's `Requires`.
+
+Manager-local dependency ids are `Helper:Name`, `Middleware:Name`, and `Service:Name`. Base discovery order is helpers, middleware, then services, but explicit dependencies decide final construction order. Dependencies from helpers or middleware to services are allowed by the graph but discouraged because services are intended to coordinate lower-level local modules.
+
+Manager-local services stay private to the owning manager. They are not available through `core:GetManager(...)`, `core:GetHelper(...)`, `core:GetMiddleware(...)`, or `core.Services`. `core.Services.Players` is the lazy Roblox/Core service table; `Manager:GetService("SlotService")` retrieves a private manager subsystem.
+
+Manager-local helpers, middleware, and services do not register Core lifecycle hooks. Keep `Init`, `Start`, `PlayerAdded`, and `CharacterAdded` on the owning manager and manually forward into a local service if needed.
 
 Use `NoCheckChildren` to skip extension scanning for a manager:
 
@@ -389,7 +434,7 @@ return {
 }
 ```
 
-This is useful when the manager has private children that it requires manually and does not want Core to inspect.
+This is useful when the manager has private children that it requires manually and does not want Core to inspect for `Extension`, `Helpers`, `Middleware`, or `Services`.
 
 ## Module Ownership
 

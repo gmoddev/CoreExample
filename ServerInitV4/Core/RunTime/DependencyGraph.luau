@@ -29,6 +29,8 @@ return function(Runtime)
 				return "The owning manager's Extension.Helpers or Helpers folder"
 			elseif Kind == "Middleware" then
 				return "The owning manager's Extension.Middleware or Middleware folder"
+			elseif Kind == "Service" then
+				return "The owning manager's Extension.Services or Services folder"
 			end
 		end
 

@@ -22,77 +22,6 @@ return function(Runtime)
 
 	local Loader = {}
 
-	local function GetDependencyKind(RequirementId)
-		local Separator = string.find(RequirementId, ":", 1, true)
-
-		if not Separator then
-			return nil
-		end
-
-		return string.sub(RequirementId, 1, Separator - 1)
-	end
-
-	local function SplitDescriptorsByPhase(Descriptors)
-		local HelperDescriptors = {}
-		local MiddlewareDescriptors = {}
-		local ManagerDescriptors = {}
-
-		for _, Descriptor in ipairs(Descriptors) do
-			if Descriptor.Kind == "Helper" then
-				table.insert(HelperDescriptors, Descriptor)
-			elseif Descriptor.Kind == "Middleware" then
-				table.insert(MiddlewareDescriptors, Descriptor)
-			else
-				table.insert(ManagerDescriptors, Descriptor)
-			end
-		end
-
-		return HelperDescriptors, MiddlewareDescriptors, ManagerDescriptors
-	end
-
-	local function ContainsKind(Kinds, Kind)
-		for _, AllowedKind in ipairs(Kinds) do
-			if Kind == AllowedKind then
-				return true
-			end
-		end
-
-		return false
-	end
-
-	local function ValidatePhaseDependencies(Descriptors, AllowedKinds)
-		for _, Descriptor in ipairs(Descriptors) do
-			for _, RequirementId in ipairs(Descriptor.Requires) do
-				local RequirementKind = GetDependencyKind(RequirementId)
-
-				if not ContainsKind(AllowedKinds, RequirementKind) then
-					return false, LoadFailure.new({
-						Stage = "ResolveDependencies",
-						ModuleId = Descriptor.Id,
-						ModulePath = Descriptor.Module and Descriptor.Module:GetFullName() or nil,
-						Reason = ("%s modules cannot depend on %s because Core loads phases in this order: Helpers, Middleware, Managers"):format(Descriptor.Kind, RequirementId),
-						Dependency = RequirementId,
-						Expected = ("One of these dependency kinds: %s"):format(table.concat(AllowedKinds, ", ")),
-					})
-				end
-			end
-		end
-
-		return true
-	end
-
-	local function AddSatisfiedIds(SatisfiedIds, Descriptors)
-		for _, Descriptor in ipairs(Descriptors) do
-			SatisfiedIds[Descriptor.Id] = true
-		end
-	end
-
-	local function AppendDescriptors(Target, Source)
-		for _, Descriptor in ipairs(Source) do
-			table.insert(Target, Descriptor)
-		end
-	end
-
 	local function AddLifecycleHook(Hooks, HookName, ModuleName, HookValue)
 		if HookValue == nil then
 			return true
@@ -132,13 +61,20 @@ return function(Runtime)
 			return true
 		end
 
-		local PlayerAdded, PlayerAddedReason = AddLifecycleHook(Hooks, "PlayerAdded", Descriptor.Id, LoadedValue.PlayerAdded)
+		local PlayerAddedValue = rawget(LoadedValue, "PlayerAdded")
+		local PlayerAdded, PlayerAddedReason = AddLifecycleHook(Hooks, "PlayerAdded", Descriptor.Id, PlayerAddedValue)
 
 		if not PlayerAdded then
 			return false, PlayerAddedReason
 		end
 
-		local CharacterAdded, CharacterAddedReason = AddLifecycleHook(Hooks, "CharacterAdded", Descriptor.Id, LoadedValue.CharacterAdded)
+		local CharacterAddedValue = rawget(LoadedValue, "CharacterAdded")
+		local CharacterAdded, CharacterAddedReason = AddLifecycleHook(
+			Hooks,
+			"CharacterAdded",
+			Descriptor.Id,
+			CharacterAddedValue
+		)
 
 		if not CharacterAdded then
 			return false, CharacterAddedReason
@@ -151,11 +87,13 @@ return function(Runtime)
 		for _, Descriptor in ipairs(Descriptors) do
 			local LoadedValue = Descriptor.LoadedValue
 
-			if type(LoadedValue) == "table" and type(LoadedValue[MethodName]) == "function" then
+			local Method = type(LoadedValue) == "table" and rawget(LoadedValue, MethodName) or nil
+
+			if type(Method) == "function" then
 				Core.Logger:Stage(("Running %s for %s"):format(MethodName, Descriptor.Id))
 
 				local Success, Result = xpcall(function()
-					LoadedValue[MethodName](LoadedValue, Core)
+					Method(LoadedValue, Core)
 				end, function(Error)
 					return debug.traceback(tostring(Error), 2)
 				end)
@@ -182,54 +120,11 @@ return function(Runtime)
 			return nil, DiscoverReason
 		end
 
-		local HelperDescriptors, MiddlewareDescriptors, ManagerDescriptors = SplitDescriptorsByPhase(Descriptors)
-		local HelpersValid, HelpersValidReason = ValidatePhaseDependencies(HelperDescriptors, { "Helper" })
+		local OrderedDescriptors, SortReason = DependencyGraph.Sort(Descriptors)
 
-		if not HelpersValid then
-			return nil, HelpersValidReason
+		if not OrderedDescriptors then
+			return nil, SortReason
 		end
-
-		local MiddlewareValid, MiddlewareValidReason =
-			ValidatePhaseDependencies(MiddlewareDescriptors, { "Helper", "Middleware" })
-
-		if not MiddlewareValid then
-			return nil, MiddlewareValidReason
-		end
-
-		local ManagersValid, ManagersValidReason =
-			ValidatePhaseDependencies(ManagerDescriptors, { "Helper", "Middleware", "Manager" })
-
-		if not ManagersValid then
-			return nil, ManagersValidReason
-		end
-
-		local OrderedHelpers, HelperSortReason = DependencyGraph.Sort(HelperDescriptors)
-
-		if not OrderedHelpers then
-			return nil, HelperSortReason
-		end
-
-		local SatisfiedIds = {}
-		AddSatisfiedIds(SatisfiedIds, OrderedHelpers)
-
-		local OrderedMiddleware, MiddlewareSortReason = DependencyGraph.Sort(MiddlewareDescriptors, SatisfiedIds)
-
-		if not OrderedMiddleware then
-			return nil, MiddlewareSortReason
-		end
-
-		AddSatisfiedIds(SatisfiedIds, OrderedMiddleware)
-
-		local OrderedManagers, ManagerSortReason = DependencyGraph.Sort(ManagerDescriptors, SatisfiedIds)
-
-		if not OrderedManagers then
-			return nil, ManagerSortReason
-		end
-
-		local OrderedDescriptors = {}
-		AppendDescriptors(OrderedDescriptors, OrderedHelpers)
-		AppendDescriptors(OrderedDescriptors, OrderedMiddleware)
-		AppendDescriptors(OrderedDescriptors, OrderedManagers)
 
 		local Hooks = {
 			PlayerAdded = {},

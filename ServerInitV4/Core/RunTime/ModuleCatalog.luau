@@ -105,8 +105,8 @@ return function(Runtime)
 
 		if type(FirstReturn) == "function" then
 			Factory = FirstReturn
-		elseif type(FirstReturn) == "table" and (type(FirstReturn[1]) == "table" or FirstReturn[2] ~= nil) then
-			if type(FirstReturn[1]) ~= "table" or type(FirstReturn[2]) ~= "function" then
+		elseif type(FirstReturn) == "table" and type(rawget(FirstReturn, 2)) == "function" then
+			if type(rawget(FirstReturn, 1)) ~= "table" then
 				return nil, LoadFailure.new({
 					Stage = "ReadMetadata",
 					ModulePath = ModuleScript:GetFullName(),
@@ -114,11 +114,11 @@ return function(Runtime)
 				})
 			end
 
-			Metadata = FirstReturn[1]
-			Factory = FirstReturn[2]
-		elseif type(FirstReturn) == "table" and type(FirstReturn.Factory) == "function" then
+			Metadata = rawget(FirstReturn, 1)
+			Factory = rawget(FirstReturn, 2)
+		elseif type(FirstReturn) == "table" and type(rawget(FirstReturn, "Factory")) == "function" then
 			Metadata = FirstReturn
-			Factory = FirstReturn.Factory
+			Factory = rawget(FirstReturn, "Factory")
 		else
 			Metadata = type(FirstReturn) == "table" and FirstReturn or {}
 			DirectValue = FirstReturn
@@ -132,7 +132,8 @@ return function(Runtime)
 			})
 		end
 
-		local Name = Metadata.Name or ModuleScript.Name
+		local Name = type(Metadata) == "table" and rawget(Metadata, "Name") or nil
+		Name = Name or ModuleScript.Name
 
 		if type(Name) ~= "string" or Name == "" then
 			return nil, LoadFailure.new({
@@ -142,7 +143,8 @@ return function(Runtime)
 			})
 		end
 
-		local Requires, RequiresReason = NormalizeRequires(Metadata.Requires, KindInfo.Kind, ModuleScript)
+		local RequiresValue = type(Metadata) == "table" and rawget(Metadata, "Requires") or nil
+		local Requires, RequiresReason = NormalizeRequires(RequiresValue, KindInfo.Kind, ModuleScript)
 
 		if not Requires then
 			return nil, RequiresReason

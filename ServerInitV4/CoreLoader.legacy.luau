@@ -19,9 +19,9 @@ if not success then
 	return
 end
 
-local success, Runtime = pcall(CoreModule, Server)
+local runtimeSuccess, Runtime = pcall(CoreModule, Server)
 
-if not success then
+if not runtimeSuccess then
 	warn("Failed to initialize Core module: ", debug.traceback(tostring(Runtime), 5))
 	return
 end
