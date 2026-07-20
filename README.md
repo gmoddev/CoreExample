@@ -20,6 +20,8 @@ CoreExample has gone through several major iterations over the years, each refle
 
 V4 is the current generation of CoreExample and is where the framework became an actual service loader.
 
+V4 exists because earlier versions eventually reached the point where implicit loading, manual initialization order, and growing interdependencies became difficult to maintain. The runtime was redesigned around explicit dependency resolution, deterministic startup, and modular ownership.
+
 At this point, it is no longer just a helper module with a few loading functions. V4 has a real runtime layer, an explicit runtime load order, dependency handling, lifecycle binding, shared server/client publishing, structured logging, failure reporting, load promises, and registry access for Helpers, Middleware, and Managers.
 
 The runtime itself loads in a defined order, including modules like Promise, LoadFailure, Logger, Services, SharedPublisher, DependencyGraph, ModuleCatalog, ManagerExtensions, Loader, and Lifecycle. This makes the system much more predictable and maintainable than the older versions.
