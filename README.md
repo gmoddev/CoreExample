@@ -52,6 +52,15 @@ The original V1 and V2 implementations are available in the **Legacy** folder. T
 
 They aren't very good. They were built much earlier in my Luau journey and don't reflect how I write code today, but they may still be interesting if you're curious about the progression.
 
+## Evolution
+
+| Version | Approx. Year | Notes |
+|---------|--------------|-------|
+| V1 | Age 10–11 | First automatic module loader |
+| V2 | Age 15 | Added lifecycle and structured loading |
+| V3 | Age 18–19 | Introduced Core, Helpers, Managers, lazy services |
+| V4 | Age 20 | Complete runtime rewrite with dependency graph and lifecycle |
+
 ---
 
 Whether you're looking for inspiration, architecture ideas, or simply want to see how a large Luau codebase can be organized, I hope you find something useful here.
