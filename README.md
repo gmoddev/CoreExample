@@ -12,6 +12,18 @@ You're welcome to use, modify, or learn from anything in this repository. I'd ge
 
 The only thing I ask is that you leave a small credit somewhere; whether that's in your game's credits, documentation, or even just a comment in the source.
 
+## Design Philosophy
+
+CoreExample intentionally keeps the runtime responsible for loading, dependency resolution, and lifecycle management.
+
+It intentionally does **not** own gameplay.
+
+Game behavior belongs inside Helpers, Middleware, Managers, and manager-local extensions.
+
+The framework is designed to provide structure without dictating architecture. Small projects can ignore Middleware entirely, while larger projects can use it as an intermediate organizational layer.
+
+Only deterministic loading and declared dependencies are enforced.
+
 ## Versions
 
 CoreExample has gone through several major iterations over the years, each reflecting how my approach to Luau architecture has evolved.
